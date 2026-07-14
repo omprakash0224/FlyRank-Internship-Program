@@ -1,4 +1,7 @@
-const express = require('express');
+const express    = require('express');
+const swaggerUi  = require('swagger-ui-express');
+const openApiSpec = require('./openapi.json');
+
 const app = express();
 
 app.use(express.json()); // parse JSON request bodies
@@ -98,6 +101,10 @@ app.delete('/tasks/:id', (req, res) => {
   res.status(204).send(); // No Content — deleted successfully
 });
 
+// Swagger UI — served at /docs
+app.use('/docs', swaggerUi.serve, swaggerUi.setup(openApiSpec));
+
 app.listen(port, () => {
   console.log(`Server is running on http://localhost:${port}`);
+  console.log(`API docs:  http://localhost:${port}/docs`);
 });
