@@ -1,23 +1,33 @@
 const { Router } = require('express');
 const tasks = require('../data/tasks');
+const db = require('../db');
 
 const router = Router();
 
 // GET /tasks — list all tasks
 router.get('/', (req, res) => {
-  res.json(tasks);
+  db.all('SELECT * FROM tasks', [], (err, rows) => {
+    if (err) {
+      return res.status(500).json({ error: 'Internal Server Error' });
+    }
+    const allTasks = rows.map(t => ({ ...t, done: t.done === 1 }));
+    res.json(allTasks);
+  });
 });
 
 // GET /tasks/:id — get one task
 router.get('/:id', (req, res) => {
   const taskId = parseInt(req.params.id, 10);
-  const task   = tasks.find(t => t.id === taskId);
-
-  if (!task) {
-    return res.status(404).json({ error: `Task ${taskId} not found` });
-  }
-
-  res.json(task);
+  
+  db.get('SELECT * FROM tasks WHERE id = ?', [taskId], (err, row) => {
+    if (err) {
+      return res.status(500).json({ error: 'Internal Server Error' });
+    }
+    if (!row) {
+      return res.status(404).json({ error: `Task ${taskId} not found` });
+    }
+    res.json({ ...row, done: row.done === 1 });
+  });
 });
 
 // POST /tasks — create a task
