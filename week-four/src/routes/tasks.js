@@ -1,5 +1,4 @@
 const { Router } = require('express');
-const tasks = require('../data/tasks');
 const db = require('../db');
 
 const router = Router();
@@ -50,46 +49,50 @@ router.post('/', (req, res) => {
 // PUT /tasks/:id — update title and/or done
 router.put('/:id', (req, res) => {
   const taskId = parseInt(req.params.id, 10);
-  const task   = tasks.find(t => t.id === taskId);
+  
+  db.get('SELECT * FROM tasks WHERE id = ?', [taskId], (err, task) => {
+    if (err) return res.status(500).json({ error: 'Internal Server Error' });
+    if (!task) return res.status(404).json({ error: `Task ${taskId} not found` });
 
-  if (!task) {
-    return res.status(404).json({ error: `Task ${taskId} not found` });
-  }
+    const { title, done } = req.body;
+    const hasTitle = title !== undefined;
+    const hasDone  = done  !== undefined;
 
-  const { title, done } = req.body;
-  const hasTitle = title !== undefined;
-  const hasDone  = done  !== undefined;
+    if (!hasTitle && !hasDone) {
+      return res.status(400).json({ error: 'Request body must include at least one of: title, done' });
+    }
 
-  if (!hasTitle && !hasDone) {
-    return res.status(400).json({ error: 'Request body must include at least one of: title, done' });
-  }
+    if (hasTitle && (typeof title !== 'string' || title.trim() === '')) {
+      return res.status(400).json({ error: 'title must be a non-empty string' });
+    }
 
-  if (hasTitle && (typeof title !== 'string' || title.trim() === '')) {
-    return res.status(400).json({ error: 'title must be a non-empty string' });
-  }
+    if (hasDone && typeof done !== 'boolean') {
+      return res.status(400).json({ error: 'done must be a boolean' });
+    }
 
-  if (hasDone && typeof done !== 'boolean') {
-    return res.status(400).json({ error: 'done must be a boolean' });
-  }
+    const newTitle = hasTitle ? title.trim() : task.title;
+    const newDone  = hasDone ? (done ? 1 : 0) : task.done;
 
-  if (hasTitle) task.title = title.trim();
-  if (hasDone)  task.done  = done;
-
-  res.json(task);
+    db.run('UPDATE tasks SET title = ?, done = ? WHERE id = ?', [newTitle, newDone, taskId], function(err) {
+      if (err) return res.status(500).json({ error: 'Internal Server Error' });
+      res.json({ id: taskId, title: newTitle, done: newDone === 1 });
+    });
+  });
 });
 
 // DELETE /tasks/:id — remove a task
 router.delete('/:id', (req, res) => {
   const taskId = parseInt(req.params.id, 10);
-  const index  = tasks.findIndex(t => t.id === taskId);
-
-  if (index === -1) {
-    return res.status(404).json({ error: `Task ${taskId} not found` });
-  }
-
-  tasks.splice(index, 1);
-
-  res.status(204).send();
+  
+  db.run('DELETE FROM tasks WHERE id = ?', [taskId], function(err) {
+    if (err) return res.status(500).json({ error: 'Internal Server Error' });
+    
+    if (this.changes === 0) {
+      return res.status(404).json({ error: `Task ${taskId} not found` });
+    }
+    
+    res.status(204).send();
+  });
 });
 
 module.exports = router;
