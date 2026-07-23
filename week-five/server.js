@@ -1,7 +1,9 @@
-const { createServer } = require('http');
-const { parse } = require('url');
+const express = require('express');
 const next = require('next');
 const dotenv = require('dotenv');
+const swaggerUi = require('swagger-ui-express');
+const path = require('path');
+const fs = require('fs');
 
 dotenv.config();
 
@@ -18,10 +20,20 @@ if (supabaseUrl && supabaseKey) {
 }
 
 app.prepare().then(() => {
-  createServer((req, res) => {
-    const parsedUrl = parse(req.url, true);
-    handle(req, res, parsedUrl);
-  }).listen(port, () => {
+  const server = express();
+
+  const openapiPath = path.join(__dirname, 'openapi.json');
+  if (fs.existsSync(openapiPath)) {
+    const swaggerDocument = JSON.parse(fs.readFileSync(openapiPath, 'utf8'));
+    server.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
+  }
+
+  // Handle all other Next.js routes
+  server.use((req, res) => {
+    return handle(req, res);
+  });
+
+  server.listen(port, () => {
     console.log(`Server running and connected to Supabase`);
   });
 });

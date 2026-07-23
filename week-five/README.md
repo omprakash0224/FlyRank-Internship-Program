@@ -1,36 +1,64 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Secure Auth API
 
-## Getting Started
+## Overview
 
-First, run the development server:
+This project is a secure backend API built to handle user authentication and protect specific routes using JSON Web Tokens (JWTs). It leverages **Next.js** for the API endpoints and **Supabase** as the Identity Provider (IdP) for secure account management, token issuance, and token verification.
+
+The application automatically guards protected routes using Next.js middleware, rejecting any requests that lack a valid Bearer token. It also includes an interactive API documentation interface powered by **Swagger UI** and **Express**.
+
+## Setup & Local Development
+
+### 1. Environment Variables
+
+Create a `.env` file in the root of your project directory. This file should never be committed to Git (ensure it is in your `.gitignore`).
+
+Add your Supabase project URL and anon key to the `.env` file:
+
+```env
+SUPABASE_URL=your_project_url
+SUPABASE_KEY=your_anon_key
+PORT=3000
+```
+
+### 2. Install Dependencies
+
+Ensure you have Node.js installed, then run:
+
+```bash
+npm install
+```
+
+### 3. Run the Server
+
+Start the development server using the custom Express script (which automatically serves the Swagger UI and Next.js routes):
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+The server will log `Server running and connected to Supabase` and start listening on port 3000.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+---
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## API Reference
 
-## Learn More
+| Method | Endpoint | Purpose | Authentication |
+|---|---|---|---|
+| POST | `/auth/signup` | Create a new user account | None |
+| POST | `/auth/login` | Authenticate user and return JWT | None |
+| POST | `/auth/logout` | Terminate the user session | `Authorization: Bearer <token>` |
+| GET | `/public/info` | Read public, unprotected data | None |
+| GET | `/protected/profile` | Read private user profile data | `Authorization: Bearer <token>` |
+| GET | `/protected/dashboard` | Read private dashboard data | `Authorization: Bearer <token>` |
 
-To learn more about Next.js, take a look at the following resources:
+---
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Interactive Documentation (Swagger UI)
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+You can view and test the API directly from your browser. With the server running, navigate to:
 
-## Deploy on Vercel
+**[http://localhost:3000/docs](http://localhost:3000/docs)**
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+From there, you can click the **Authorize** lock button to supply your JWT and instantly test the protected endpoints.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+![Swagger UI](public/swagger-ui.png)
