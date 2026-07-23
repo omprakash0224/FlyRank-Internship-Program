@@ -38,11 +38,13 @@ router.post('/', (req, res) => {
     return res.status(400).json({ error: 'title is required and must be a non-empty string' });
   }
 
-  const nextId  = tasks.length > 0 ? Math.max(...tasks.map(t => t.id)) + 1 : 1;
-  const newTask = { id: nextId, title: title.trim(), done: false };
-  tasks.push(newTask);
-
-  res.status(201).json(newTask);
+  db.run('INSERT INTO tasks (title, done) VALUES (?, ?)', [title.trim(), 0], function (err) {
+    if (err) {
+      return res.status(500).json({ error: 'Internal Server Error' });
+    }
+    const newTask = { id: this.lastID, title: title.trim(), done: false };
+    res.status(201).json(newTask);
+  });
 });
 
 // PUT /tasks/:id — update title and/or done
