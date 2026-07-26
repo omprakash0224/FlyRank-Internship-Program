@@ -1,0 +1,41 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Environment variables (NEVER commit secrets)
+.env
+.env.local
+.env.*.local
+
+# Build output
+dist/
+build/
+public/widget.js
+public/widget.min.js
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+pino.log
+
+# Test coverage
+coverage/
+.nyc_output/
+
+# Prisma generated client
+prisma/generated/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor directories
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Docker volumes
+.docker-data/
