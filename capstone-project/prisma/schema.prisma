@@ -1,0 +1,95 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  // Neon uses connection pooling via PgBouncer on port 5432.
+  // For migrations (prisma migrate dev), use the direct (non-pooled) connection string.
+  // You can add directUrl here if needed: directUrl = env("DIRECT_URL")
+}
+
+// ─── Enums ───────────────────────────────────────────────────────────────────
+
+enum WidgetType {
+  POPOVER
+  SIGNUP_FORM
+  CTA
+}
+
+enum SubmissionStatus {
+  PENDING
+  ENRICHED
+  STORED
+  FAILED
+}
+
+// ─── Models ──────────────────────────────────────────────────────────────────
+
+/// A tenant represents an authenticated owner/customer of the platform.
+/// All widgets and submissions are scoped to a tenant.
+model Tenant {
+  id          String       @id @default(cuid())
+  name        String
+  email       String       @unique
+  /// Hashed password for email/password auth
+  passwordHash String
+  /// Optional API key for machine-to-machine access
+  apiKey      String       @unique @default(cuid())
+  widgets     Widget[]
+  submissions Submission[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@map("tenants")
+}
+
+/// A widget is a configurable UI component (popover, signup form, CTA)
+/// that can be embedded on any external website via a <script> snippet.
+model Widget {
+  id          String       @id @default(cuid())
+  tenantId    String
+  tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name        String
+  type        WidgetType
+  /// JSON config: fields, copy, targeting rules, styling
+  config      Json
+  /// Monotonically increasing version for cache busting
+  version     Int          @default(1)
+  isActive    Boolean      @default(true)
+  submissions Submission[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@index([tenantId])
+  @@map("widgets")
+}
+
+/// A submission is a form entry captured by a widget on an external site.
+model Submission {
+  id        String           @id @default(cuid())
+  widgetId  String
+  widget    Widget           @relation(fields: [widgetId], references: [id], onDelete: Cascade)
+  tenantId  String
+  tenant    Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  /// Raw submitted form data (key→value pairs)
+  data      Json
+  /// Enriched metadata: geo, user agent parsed, etc.
+  enriched  Json?
+  /// SHA-256 hash of the visitor's IP (privacy-preserving for rate limiting)
+  ipHash    String
+  userAgent String?
+  referrer  String?
+  status    SubmissionStatus @default(PENDING)
+  createdAt DateTime         @default(now())
+
+  @@index([tenantId])
+  @@index([widgetId])
+  @@index([createdAt])
+  @@map("submissions")
+}
