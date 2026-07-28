@@ -1,6 +1,7 @@
 import express from 'express';
 import { healthRouter } from './routes/health.js';
 import { adminRouter } from './routes/admin/index.js';
+import { publicRouter } from './routes/public/index.js';
 import { requireAuth } from './middleware/auth.js';
 import { attachTenant } from './middleware/tenant.js';
 import { errorHandler } from './utils/errors.js';
@@ -43,11 +44,13 @@ export function createApp() {
   // ─── Routes ───────────────────────────────────────────────────────────────
   app.use('/', healthRouter);
 
+  // Public API — unauthenticated, CORS-enabled (widgets + submissions)
+  // CORS is applied per-route inside publicRouter, not globally,
+  // so admin routes are unaffected.
+  app.use('/', publicRouter);
+
   // Admin API — all routes require a valid JWT + tenant record
   app.use('/api', requireAuth, attachTenant, adminRouter);
-
-  // TODO (Milestone 3): Mount public routes
-  // app.use('/', publicRouter);
 
   // ─── 404 Handler ─────────────────────────────────────────────────────────
   app.use((_req, res) => {
