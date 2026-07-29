@@ -1,4 +1,6 @@
 import express from 'express';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
 import { healthRouter } from './routes/health.js';
 import { adminRouter } from './routes/admin/index.js';
 import { publicRouter } from './routes/public/index.js';
@@ -6,6 +8,8 @@ import { requireAuth } from './middleware/auth.js';
 import { attachTenant } from './middleware/tenant.js';
 import { errorHandler } from './utils/errors.js';
 import { logger } from './utils/logger.js';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 /**
  * Factory function that creates and configures the Express app.
@@ -16,6 +20,23 @@ import { logger } from './utils/logger.js';
  */
 export function createApp() {
   const app = express();
+
+  // ─── Static Assets ────────────────────────────────────────────────────────────
+  // Serve public/ so GET /widget.js (and any hashed build artefacts) work.
+  // index: false prevents Express from serving a directory listing or index page.
+  app.use(
+    express.static(join(__dirname, '..', 'public'), {
+      index: false,
+      maxAge: '1h',
+      setHeaders(res, filePath) {
+        // widget.js is cache-busted via filename hash in prod builds;
+        // for the development source file use a shorter cache.
+        if (filePath.endsWith('widget.js')) {
+          res.setHeader('Cache-Control', 'public, max-age=60');
+        }
+      },
+    })
+  );
 
   // ─── Request Parsing ─────────────────────────────────────────────────────
   // Limit request body to 100KB as per security requirements

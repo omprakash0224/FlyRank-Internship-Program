@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Acme Corp — Customer Site Demo</title>
+    <meta name="description" content="A demo third-party website that embeds the widget platform's form using the one-line script snippet." />
+    <style>
+      /* ─── Reset & Base ─────────────────────────────────────────────────── */
+      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+        background: #0f172a;
+        color: #e2e8f0;
+        min-height: 100vh;
+      }
+
+      /* ─── Nav ──────────────────────────────────────────────────────────── */
+      nav {
+        background: #1e293b;
+        border-bottom: 1px solid #334155;
+        padding: 0 40px;
+        height: 60px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .nav-logo {
+        font-size: 20px;
+        font-weight: 800;
+        background: linear-gradient(135deg, #38bdf8, #818cf8);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        letter-spacing: -0.5px;
+      }
+      .nav-links { display: flex; gap: 28px; }
+      .nav-links a {
+        color: #94a3b8;
+        text-decoration: none;
+        font-size: 14px;
+        transition: color 0.15s;
+      }
+      .nav-links a:hover { color: #e2e8f0; }
+
+      /* ─── Hero ─────────────────────────────────────────────────────────── */
+      .hero {
+        max-width: 900px;
+        margin: 0 auto;
+        padding: 100px 40px 60px;
+        text-align: center;
+      }
+      .hero-badge {
+        display: inline-block;
+        background: rgba(56, 189, 248, 0.12);
+        color: #38bdf8;
+        border: 1px solid rgba(56, 189, 248, 0.3);
+        border-radius: 100px;
+        padding: 4px 14px;
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+        text-transform: uppercase;
+        margin-bottom: 24px;
+      }
+      .hero h1 {
+        font-size: clamp(32px, 6vw, 56px);
+        font-weight: 800;
+        line-height: 1.1;
+        letter-spacing: -1.5px;
+        color: #f8fafc;
+        margin-bottom: 20px;
+      }
+      .hero h1 span {
+        background: linear-gradient(135deg, #38bdf8 0%, #818cf8 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+      }
+      .hero p {
+        font-size: 18px;
+        color: #94a3b8;
+        max-width: 560px;
+        margin: 0 auto 40px;
+        line-height: 1.7;
+      }
+      .hero-cta-row { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
+      .btn-primary {
+        background: linear-gradient(135deg, #3b82f6, #6366f1);
+        color: #fff;
+        padding: 14px 28px;
+        border-radius: 10px;
+        font-size: 15px;
+        font-weight: 600;
+        text-decoration: none;
+        transition: opacity 0.15s, transform 0.15s;
+        border: none;
+        cursor: pointer;
+      }
+      .btn-primary:hover { opacity: 0.88; transform: translateY(-1px); }
+      .btn-secondary {
+        background: #1e293b;
+        color: #94a3b8;
+        padding: 14px 28px;
+        border-radius: 10px;
+        font-size: 15px;
+        font-weight: 600;
+        text-decoration: none;
+        border: 1px solid #334155;
+        transition: background 0.15s;
+        cursor: pointer;
+      }
+      .btn-secondary:hover { background: #273449; color: #e2e8f0; }
+
+      /* ─── Features ─────────────────────────────────────────────────────── */
+      .features {
+        max-width: 900px;
+        margin: 0 auto;
+        padding: 60px 40px;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 20px;
+      }
+      .feature-card {
+        background: #1e293b;
+        border: 1px solid #334155;
+        border-radius: 12px;
+        padding: 24px;
+        transition: border-color 0.2s;
+      }
+      .feature-card:hover { border-color: #4f6a8f; }
+      .feature-icon { font-size: 28px; margin-bottom: 12px; }
+      .feature-card h3 { font-size: 16px; font-weight: 700; color: #f1f5f9; margin-bottom: 8px; }
+      .feature-card p  { font-size: 13px; color: #64748b; line-height: 1.6; }
+
+      /* ─── Demo Info Box ────────────────────────────────────────────────── */
+      .demo-info {
+        max-width: 900px;
+        margin: 0 auto 40px;
+        padding: 0 40px;
+      }
+      .demo-box {
+        background: rgba(56, 189, 248, 0.06);
+        border: 1px solid rgba(56, 189, 248, 0.25);
+        border-radius: 12px;
+        padding: 24px 28px;
+      }
+      .demo-box h2 { font-size: 15px; font-weight: 700; color: #38bdf8; margin-bottom: 10px; }
+      .demo-box p, .demo-box li  { font-size: 13px; color: #94a3b8; line-height: 1.7; }
+      .demo-box ul { padding-left: 18px; }
+      .demo-box code {
+        background: rgba(255,255,255,0.06);
+        border: 1px solid #334155;
+        border-radius: 4px;
+        padding: 2px 6px;
+        font-family: 'Fira Code', 'Courier New', monospace;
+        font-size: 12px;
+        color: #e2e8f0;
+      }
+      .demo-box pre {
+        background: #0f172a;
+        border: 1px solid #334155;
+        border-radius: 8px;
+        padding: 14px 16px;
+        margin-top: 10px;
+        overflow-x: auto;
+        font-family: 'Fira Code', 'Courier New', monospace;
+        font-size: 12px;
+        color: #e2e8f0;
+        line-height: 1.6;
+      }
+
+      /* ─── Footer ───────────────────────────────────────────────────────── */
+      footer {
+        border-top: 1px solid #1e293b;
+        text-align: center;
+        padding: 28px;
+        font-size: 13px;
+        color: #475569;
+        margin-top: 40px;
+      }
+    </style>
+  </head>
+  <body>
+
+    <!-- ─── Nav ─────────────────────────────────────────────────────────── -->
+    <nav>
+      <span class="nav-logo">Acme Corp</span>
+      <div class="nav-links">
+        <a href="#">Product</a>
+        <a href="#">Pricing</a>
+        <a href="#">Blog</a>
+        <a href="#">Contact</a>
+      </div>
+    </nav>
+
+    <!-- ─── Hero ─────────────────────────────────────────────────────────── -->
+    <section class="hero">
+      <div class="hero-badge">🚀 New Platform Launch</div>
+      <h1>Build something<br /><span>remarkable</span></h1>
+      <p>
+        The modern toolkit for teams that ship fast. Integrate in minutes,
+        scale to millions — without the operational headache.
+      </p>
+      <div class="hero-cta-row">
+        <button class="btn-primary" id="open-widget-btn">Get Early Access</button>
+        <a class="btn-secondary" href="#">Watch Demo</a>
+      </div>
+    </section>
+
+    <!-- ─── Feature Cards ─────────────────────────────────────────────────── -->
+    <section class="features">
+      <div class="feature-card">
+        <div class="feature-icon">⚡</div>
+        <h3>Lightning Fast</h3>
+        <p>CDN-grade asset delivery. Your widget loads in under 100 ms from anywhere in the world.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🔒</div>
+        <h3>Zero-Trust Security</h3>
+        <p>Rate limiting, spam honeypots, and strict validation on every submission.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🌍</div>
+        <h3>Geo Enrichment</h3>
+        <p>Every submission is enriched with IP→geo data from a 3-provider fallback chain.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">📊</div>
+        <h3>Live Dashboard</h3>
+        <p>See submissions stream in with full metadata — country, browser, referrer.</p>
+      </div>
+    </section>
+
+    <!-- ─── Demo Info ──────────────────────────────────────────────────────── -->
+    <div class="demo-info">
+      <div class="demo-box">
+        <h2>📋 Demo Instructions</h2>
+        <p>This is the <strong>customer-site.html</strong> demo page, acting as a third-party site that embeds the platform's widget via the one-line script tag.</p>
+        <ul>
+          <li>Make sure the platform server is running: <code>npm run dev</code></li>
+          <li>Create a tenant + widget and grab the widget ID from the API response.</li>
+          <li>Replace <code>YOUR_WIDGET_ID_HERE</code> in the <code>&lt;script&gt;</code> tag below (or directly in this file).</li>
+          <li>Reload this page — the widget will pop up automatically, or click <strong>Get Early Access</strong>.</li>
+        </ul>
+        <pre>&lt;!-- Drop this one-liner anywhere on your site --&gt;
+&lt;script
+  src="http://localhost:3000/widget.js"
+  data-widget-id="cms4z49j20001gn9gkx1v98az"
+  async defer&gt;&lt;/script&gt;</pre>
+      </div>
+    </div>
+
+    <!-- ─── Footer ────────────────────────────────────────────────────────── -->
+    <footer>
+      &copy; 2026 Acme Corp &mdash; Demo page for Embeddable Widget &amp; Lead-Capture Platform capstone project.
+    </footer>
+
+    <!-- ═══════════════════════════════════════════════════════════════════════
+         EMBED SNIPPET
+         Widget ID in use: cms4z49j20001gn9gkx1v98az
+         To get one:
+           1. POST /api/widgets  (with Bearer token from /api/auth/login)
+           2. Copy the returned "id" field
+           3. Paste it as the value of WIDGET_ID below and reload the page
+    ════════════════════════════════════════════════════════════════════════════ -->
+    <script>
+      // ┌───────────────────────────────────────────────────────────┐
+      // │  ←←←  CHANGE THIS ONE VALUE TO YOUR REAL WIDGET ID  ←←← │
+      const WIDGET_ID = 'cms4z49j20001gn9gkx1v98az';
+      // └───────────────────────────────────────────────────────────┘
+
+      // Dynamically create the embed <script> tag so the src and
+      // data-widget-id are driven from WIDGET_ID above — no find-and-replace
+      // needed in two separate places.
+      (function () {
+        const s = document.createElement('script');
+        s.src = 'http://localhost:3000/widget.js';
+        s.setAttribute('data-widget-id', WIDGET_ID);
+        s.async = true;
+        s.defer = true;
+        document.currentScript.insertAdjacentElement('afterend', s);
+      })();
+    </script>
+
+    <!-- ─── Trigger widget on button click ────────────────────────────────────── -->
+    <script>
+      // The widget auto-loads on page ready via the snippet above.
+      // Clicking the CTA button calls window.__widgetPlatform[id].open() which
+      // was registered by widget.js on first load.
+      //
+      // WHY NOT re-inject the <script> tag?
+      //   Browsers do NOT set document.currentScript for dynamically appended
+      //   scripts, so re-injecting widget.js causes it to abort immediately
+      //   (it can't read data-widget-id). Calling the already-loaded function
+      //   directly is the correct pattern.
+      document.getElementById('open-widget-btn').addEventListener('click', function () {
+        var api = window.__widgetPlatform && window.__widgetPlatform[WIDGET_ID];
+        if (api) {
+          api.open();
+        } else {
+          // widget.js hasn't loaded yet — give it a moment then try again
+          setTimeout(function () {
+            var retry = window.__widgetPlatform && window.__widgetPlatform[WIDGET_ID];
+            if (retry) retry.open();
+          }, 500);
+        }
+      });
+    </script>
+
+  </body>
+</html>
