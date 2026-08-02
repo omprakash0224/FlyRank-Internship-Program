@@ -50,10 +50,10 @@ flowchart TD
         publicApi["Public API (Express)\nConfig & submissions (CORS)"]
         embedScript["Embed Script (Vanilla JS)\nInjected into external sites"]
         
-        postgres[("PostgreSQL (Prisma)\nTenants, Widgets, Submissions")]
-        redis[("Redis (ioredis)\nRate limiting, cache, queues")]
+        postgres[("PostgreSQL on Neon (Prisma)\nTenants, Widgets, Submissions")]
+        redis[("Redis on Upstash (@upstash/redis)\nRate limiting, cache, queues")]
         
-        bgWorkers["Background Workers (Node.js)\nProcesses async queues"]
+        bgWorkers["Background Workers (Node.js)\nFire-and-forget enrichment & side effects"]
     end
     
     adminApi <-->|"Reads/Writes"| postgres
@@ -168,8 +168,11 @@ erDiagram
     TENANT {
         string id PK
         string name
-        string apiKey "Unique"
+        string email "Unique"
+        string passwordHash
+        string apiKey "Unique, auto-generated"
         datetime createdAt
+        datetime updatedAt
     }
     
     WIDGET {
@@ -180,6 +183,8 @@ erDiagram
         json config
         int version
         boolean isActive
+        datetime createdAt
+        datetime updatedAt
     }
     
     SUBMISSION {
@@ -187,9 +192,11 @@ erDiagram
         string widgetId FK
         string tenantId FK
         json data
-        json enriched
-        string ipHash
-        string status "PENDING, ENRICHED, FAILED"
+        json enriched "nullable"
+        string ipHash "SHA-256 of visitor IP"
+        string userAgent "nullable"
+        string referrer "nullable"
+        string status "PENDING, ENRICHED, STORED, FAILED"
         datetime createdAt
     }
 ```

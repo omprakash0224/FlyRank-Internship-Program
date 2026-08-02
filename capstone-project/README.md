@@ -28,7 +28,9 @@ Embedding widgets on third-party domains introduces significant security, perfor
 
 ### Prerequisites
 - Node.js (v20.0.0 or higher)
-- Docker & Docker Compose (for local database and Redis)
+- A [Neon](https://neon.tech) account (cloud PostgreSQL) — no local Postgres needed
+- An [Upstash](https://upstash.com) account (serverless Redis) — no local Redis needed
+- Docker & Docker Compose (optional, for containerised deployment only)
 
 ### Installation Steps
 
@@ -38,34 +40,41 @@ Embedding widgets on third-party domains introduces significant security, perfor
    ```
 
 2. **Environment Variables:**
-   Copy the example environment file and configure it as needed.
+   Copy the example environment file and fill in your Neon and Upstash credentials.
    ```bash
    cp .env.example .env
    ```
+   Key variables to set:
+   - `DATABASE_URL` — Neon pooled connection string
+   - `UPSTASH_REDIS_REST_URL` — Upstash REST endpoint
+   - `UPSTASH_REDIS_REST_TOKEN` — Upstash REST token
+   - `JWT_SECRET` — at least 64 random characters
 
-3. **Start Local Infrastructure:**
-   Use Docker Compose to start PostgreSQL and Redis locally.
-   ```bash
-   docker-compose up -d
-   ```
-
-4. **Database Setup:**
-   Push the Prisma schema to the database to set up tables.
+3. **Database Setup:**
+   Push the Prisma schema to your Neon database to create tables.
    ```bash
    npm run db:push
    ```
 
-5. **Start the Development Server:**
-   Run the backend in watch mode.
+4. **Start the Development Server:**
+   Run the backend in watch mode (uses Node.js built-in `--watch`).
    ```bash
    npm run dev
    ```
 
 ### Other Useful Commands
-- `npm run test` - Run tests
-- `npm run lint` - Run ESLint
+- `npm run test` - Run tests (Vitest)
+- `npm run test:watch` - Run tests in watch mode
+- `npm run test:coverage` - Run tests with coverage report
+- `npm run lint` - Run ESLint on `src/` and `tests/`
+- `npm run lint:fix` - Auto-fix lint issues
 - `npm run format` - Format code using Prettier
+- `npm run format:check` - Check formatting without writing
+- `npm run db:push` - Push Prisma schema to the database
+- `npm run db:migrate` - Run Prisma migrations (dev)
 - `npm run db:studio` - Open Prisma Studio to inspect the database
+- `npm run build` - Build the embed script (`public/widget.js`)
+- `npm start` - Start the server in production mode
 
 ## Architecture Overview
 
@@ -110,8 +119,10 @@ flowchart TD
 ```
 
 ### Core Stack
-- **API Framework:** Express (Node.js)
-- **Database:** PostgreSQL accessed via Prisma ORM
-- **Cache & Rate Limiting:** Redis
-- **Auth:** JWT + bcrypt (tenant-scoped)
+- **API Framework:** Express (Node.js, v20+)
+- **Database:** PostgreSQL via [Neon](https://neon.tech) — accessed with Prisma ORM (`@prisma/client` + `@prisma/adapter-neon`)
+- **Cache & Rate Limiting:** Redis via [Upstash](https://upstash.com) (`@upstash/redis`, HTTP-based, serverless-compatible)
+- **Auth:** JWT (`jsonwebtoken`) + `bcryptjs` (tenant-scoped)
+- **Logging:** `pino` + `pino-pretty`
+- **Validation:** Zod schemas
 - **Testing:** Vitest & Supertest
