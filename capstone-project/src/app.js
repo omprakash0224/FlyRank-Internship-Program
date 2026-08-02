@@ -2,7 +2,7 @@ import express from 'express';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { healthRouter } from './routes/health.js';
-import { adminRouter } from './routes/admin/index.js';
+import { adminRouter, authRouter } from './routes/admin/index.js';
 import { publicRouter } from './routes/public/index.js';
 import { requireAuth } from './middleware/auth.js';
 import { attachTenant } from './middleware/tenant.js';
@@ -69,6 +69,9 @@ export function createApp() {
   // CORS is applied per-route inside publicRouter, not globally,
   // so admin routes are unaffected.
   app.use('/', publicRouter);
+
+  // Public auth routes — login and register (no JWT required)
+  app.use('/api/auth', authRouter);
 
   // Admin API — all routes require a valid JWT + tenant record
   app.use('/api', requireAuth, attachTenant, adminRouter);

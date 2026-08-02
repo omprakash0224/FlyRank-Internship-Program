@@ -282,7 +282,7 @@ enum SubmissionStatus { PENDING, ENRICHED, STORED, FAILED }
 |------|-------------|-------------|
 | M5.1 | Dashboard routes: stats + submissions list | `src/routes/admin/dashboard.js` |
 | M5.2 | Dashboard UI (simple HTML/HTMX or React) | `public/dashboard.html` |
-| M5.3 | Real-time updates (SSE stretch) | Optional |
+| M5.3 | Real-time updates (SSE stretch) |  |
 | M5.4 | README + architecture diagram | `README.md`, `ARCHITECTURE.md` |
 | M5.5 | Final test run + demo script | `demo.sh` |
 
