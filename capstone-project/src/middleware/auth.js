@@ -50,8 +50,12 @@ export function verifyToken(token) {
 // ─── Middleware ───────────────────────────────────────────────────────────────
 
 /**
- * Express middleware — validates the Bearer token in the Authorization header
- * and attaches the decoded tenantId to req.tenantId.
+ * Express middleware — validates the JWT and attaches req.tenantId.
+ *
+ * Token resolution order:
+ *   1. Authorization: Bearer <token>  header  (standard for all API calls)
+ *   2. ?token=<token>                 query param (SSE fallback — EventSource
+ *      cannot send custom headers, so the dashboard passes the JWT this way)
  *
  * On failure: returns 401 Unauthorized.
  * On success: calls next().
@@ -59,19 +63,28 @@ export function verifyToken(token) {
  * @type {import('express').RequestHandler}
  */
 export function requireAuth(req, res, next) {
-  const authHeader = req.headers.authorization;
+  let token = null;
 
-  if (!authHeader) {
-    logger.debug({ path: req.path }, 'Missing Authorization header');
+  // ── 1. Authorization header (preferred) ──────────────────────────────────
+  const authHeader = req.headers.authorization;
+  if (authHeader) {
+    const parts = authHeader.split(' ');
+    if (parts.length !== 2 || parts[0].toLowerCase() !== 'bearer') {
+      return next(new UnauthorizedError('Authorization header must be "Bearer <token>"'));
+    }
+    token = parts[1];
+  }
+
+  // ── 2. ?token= query param (SSE / EventSource fallback) ──────────────────
+  if (!token && req.query?.token) {
+    token = req.query.token;
+    logger.debug({ path: req.path }, 'Auth via query param token (SSE connection)');
+  }
+
+  if (!token) {
+    logger.debug({ path: req.path }, 'Missing auth token');
     return next(new UnauthorizedError('Authorization header is required'));
   }
-
-  const parts = authHeader.split(' ');
-  if (parts.length !== 2 || parts[0].toLowerCase() !== 'bearer') {
-    return next(new UnauthorizedError('Authorization header must be "Bearer <token>"'));
-  }
-
-  const token = parts[1];
 
   try {
     const payload = verifyToken(token);
