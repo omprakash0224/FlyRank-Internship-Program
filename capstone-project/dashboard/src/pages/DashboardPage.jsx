@@ -10,6 +10,7 @@ import {
 import { dashboardApi } from '../lib/api.js';
 import { StatCard } from '../components/StatCard.jsx';
 import { TypeBadge } from '../components/ui.jsx';
+import { SubmissionDetail } from '../components/SubmissionDetail.jsx';
 import { useSSE } from '../hooks/useSSE.js';
 
 const STATUS_COLORS = {
@@ -51,10 +52,23 @@ function CustomTooltip({ active, payload, label }) {
 export function DashboardPage() {
   const [stats, setStats] = useState(null);
   const [recentSubmissions, setRecentSubmissions] = useState([]);
+  const [dailyData, setDailyData] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [chartLoading, setChartLoading] = useState(true);
   const [error, setError] = useState('');
   const [timeRange, setTimeRange] = useState('7d');
+  const [selected, setSelected] = useState(null);
   const processedEventRef = useRef(null);
+
+  // Open detail popover
+  async function openDetail(id) {
+    try {
+      const res = await dashboardApi.getSubmission(id);
+      setSelected(res.data);
+    } catch {
+      setSelected(recentSubmissions.find((s) => s.id === id) ?? null);
+    }
+  }
 
   // Real-time SSE updates
   const { lastEvent } = useSSE('/api/dashboard/submissions/stream');
@@ -104,6 +118,27 @@ export function DashboardPage() {
     };
   }, []);
 
+  // Fetch real daily chart data whenever timeRange changes
+  useEffect(() => {
+    let ignore = false;
+    async function loadDaily() {
+      setChartLoading(true);
+      try {
+        const days = timeRange === '30d' ? 30 : 7;
+        const res = await dashboardApi.getDailyStats(days);
+        if (!ignore) {
+          setDailyData(res.data ?? []);
+        }
+      } catch {
+        // silently fail — chart will just be empty
+      } finally {
+        if (!ignore) setChartLoading(false);
+      }
+    }
+    loadDaily();
+    return () => { ignore = true; };
+  }, [timeRange]);
+
   // Handle incoming real-time SSE submission
   useEffect(() => {
     if (!lastEvent || lastEvent.type !== 'new-submission') return;
@@ -128,16 +163,71 @@ export function DashboardPage() {
     });
   }, [lastEvent]);
 
-  // Construct chart data for Area chart
-  const areaData = [
-    { name: 'Mon', count: Math.round((stats?.todaySubmissions ?? 5) * 0.4) },
-    { name: 'Tue', count: Math.round((stats?.todaySubmissions ?? 8) * 0.6) },
-    { name: 'Wed', count: Math.round((stats?.todaySubmissions ?? 12) * 0.8) },
-    { name: 'Thu', count: Math.round((stats?.todaySubmissions ?? 10) * 0.7) },
-    { name: 'Fri', count: Math.round((stats?.todaySubmissions ?? 15) * 0.9) },
-    { name: 'Sat', count: Math.round((stats?.todaySubmissions ?? 7) * 0.5) },
-    { name: 'Sun', count: stats?.todaySubmissions ?? 12 },
-  ];
+  // ── Compute real trends from stats ─────────────────────────────────────────
+
+  // Total Submissions: last 7d vs prior 7d percentage change
+  const totalTrend = (() => {
+    if (!stats) return { label: null, type: 'neutral', subtext: 'vs previous 7 days' };
+    const curr = stats.last7dSubmissions ?? 0;
+    const prev = stats.prev7dSubmissions ?? 0;
+    if (prev === 0 && curr === 0) return { label: null, type: 'neutral', subtext: 'vs previous 7 days' };
+    if (prev === 0) return { label: `+${curr} new`, type: 'positive', subtext: 'vs previous 7 days' };
+    const pct = Math.round(((curr - prev) / prev) * 100);
+    return {
+      label: pct >= 0 ? `+${pct}%` : `${pct}%`,
+      type: pct >= 0 ? 'positive' : 'negative',
+      subtext: 'vs previous 7 days',
+    };
+  })();
+
+  // Submissions Today: today vs yesterday percentage change
+  const todayTrend = (() => {
+    if (!stats) return { label: null, type: 'neutral', subtext: 'vs yesterday' };
+    const today = stats.todaySubmissions ?? 0;
+    const yest = stats.yesterdaySubmissions ?? 0;
+    if (yest === 0 && today === 0) return { label: null, type: 'neutral', subtext: 'vs yesterday' };
+    if (yest === 0) return { label: `+${today} today`, type: 'positive', subtext: 'vs yesterday' };
+    const pct = Math.round(((today - yest) / yest) * 100);
+    return {
+      label: pct >= 0 ? `+${pct}%` : `${pct}%`,
+      type: pct >= 0 ? 'positive' : 'negative',
+      subtext: `${yest} yesterday`,
+    };
+  })();
+
+  // Active Widgets: delta vs 7 days ago
+  const widgetTrend = (() => {
+    if (!stats) return { label: null, type: 'neutral', subtext: 'deployed & live' };
+    const delta = stats.widgetDelta ?? 0;
+    if (delta === 0) return { label: null, type: 'neutral', subtext: 'no change this week' };
+    return {
+      label: delta > 0 ? `+${delta} new` : `${delta}`,
+      type: delta > 0 ? 'positive' : 'negative',
+      subtext: 'added this week',
+    };
+  })();
+
+  // Enriched Rate: last 7d rate vs prior 7d rate
+  const enrichedTrend = (() => {
+    if (!stats) return { label: null, type: 'neutral', subtext: 'enrichment success' };
+    const currTotal = stats.last7dSubmissions ?? 0;
+    const prevTotal = stats.prev7dSubmissions ?? 0;
+    const currEnriched = stats.last7dEnriched ?? 0;
+    const prevEnriched = stats.prev7dEnriched ?? 0;
+    const currRate = currTotal > 0 ? (currEnriched / currTotal) * 100 : 0;
+    const prevRate = prevTotal > 0 ? (prevEnriched / prevTotal) * 100 : 0;
+    if (prevTotal === 0 && currTotal === 0) return { label: null, type: 'neutral', subtext: 'enrichment success' };
+    if (prevTotal === 0) return { label: `${Math.round(currRate)}% this week`, type: 'positive', subtext: 'enrichment success' };
+    const diff = Math.round(currRate - prevRate);
+    return {
+      label: diff >= 0 ? `+${diff}pp` : `${diff}pp`,
+      type: diff >= 0 ? 'positive' : 'negative',
+      subtext: 'vs previous 7 days',
+    };
+  })();
+
+  // Real daily chart data mapped to recharts format
+  const areaData = dailyData.map((d) => ({ name: d.date, count: d.count }));
 
   // Bar chart data from byWidget
   const barData = stats?.byWidget?.map((w) => ({
@@ -163,36 +253,36 @@ export function DashboardPage() {
           label="Total Submissions"
           value={loading ? '—' : (stats?.totalSubmissions ?? 0).toLocaleString()}
           icon={Inbox}
-          trend="+12.4%"
-          trendType="positive"
-          subtext="vs previous period"
+          trend={totalTrend.label}
+          trendType={totalTrend.type}
+          subtext={totalTrend.subtext}
           loading={loading}
         />
         <StatCard
           label="Submissions Today"
           value={loading ? '—' : (stats?.todaySubmissions ?? 0).toLocaleString()}
           icon={CalendarDays}
-          trend="+8.2%"
-          trendType="positive"
-          subtext="higher than avg"
+          trend={todayTrend.label}
+          trendType={todayTrend.type}
+          subtext={todayTrend.subtext}
           loading={loading}
         />
         <StatCard
           label="Active Widgets"
           value={loading ? '—' : (stats?.totalWidgets ?? 0).toLocaleString()}
           icon={Layers}
-          trend="+2 new"
-          trendType="positive"
-          subtext="deployed & live"
+          trend={widgetTrend.label}
+          trendType={widgetTrend.type}
+          subtext={widgetTrend.subtext}
           loading={loading}
         />
         <StatCard
           label="Enriched Rate"
           value={loading ? '—' : `${Math.round(((stats?.statusBreakdown?.ENRICHED ?? 0) / Math.max(stats?.totalSubmissions ?? 1, 1)) * 100)}%`}
           icon={CheckCircle2}
-          trend="98.5%"
-          trendType="positive"
-          subtext="lead enrichment success"
+          trend={enrichedTrend.label}
+          trendType={enrichedTrend.type}
+          subtext={enrichedTrend.subtext}
           loading={loading}
         />
       </div>
@@ -230,8 +320,12 @@ export function DashboardPage() {
             </div>
           </div>
 
-          {loading ? (
+          {chartLoading ? (
             <div className="skeleton" style={{ height: 260, borderRadius: 16 }} />
+          ) : areaData.length === 0 ? (
+            <div style={{ height: 260, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: 13 }}>
+              No submissions recorded in this period
+            </div>
           ) : (
             <div style={{ height: 260, width: '100%' }}>
               <ResponsiveContainer width="100%" height="100%">
@@ -299,7 +393,13 @@ export function DashboardPage() {
                   : 'Just now';
 
                 return (
-                  <div key={sub.id} className="activity-item">
+                  <div
+                    key={sub.id}
+                    className="activity-item"
+                    onClick={() => openDetail(sub.id)}
+                    style={{ cursor: 'pointer' }}
+                    title="Click to view submission details"
+                  >
                     <div className="activity-left">
                       <div
                         className="activity-dot"
@@ -405,6 +505,14 @@ export function DashboardPage() {
           )}
         </div>
       </div>
+
+      {/* ── Submission Detail Popover ─────────────────────────── */}
+      {selected && (
+        <SubmissionDetail
+          submission={selected}
+          onClose={() => setSelected(null)}
+        />
+      )}
     </div>
   );
 }

@@ -12,39 +12,99 @@ import { prisma } from '../lib/prisma.js';
  * Returns:
  *  - totalSubmissions: all-time count
  *  - todaySubmissions: submissions created today (UTC)
- *  - totalWidgets: active widget count
- *  - statusBreakdown: { PENDING, ENRICHED, STORED, FAILED }
+ *  - yesterdaySubmissions: submissions created yesterday (UTC) — for today trend
+ *  - last7dSubmissions: submissions in the last 7 days — for total trend
+ *  - prev7dSubmissions: submissions in the 7 days before that — for total trend
+ *  - totalWidgets: active widget count (now)
+ *  - prevTotalWidgets: active widget count 7 days ago (for widget delta)
+ *  - statusBreakdown: { PENDING, ENRICHED, STORED, FAILED } — all-time
+ *  - last7dEnriched: ENRICHED count in last 7 days — for enrichment trend
+ *  - prev7dEnriched: ENRICHED count in prev 7 days — for enrichment trend
+ *  - last7dTotal: total submissions in last 7 days (denominator for rate)
+ *  - prev7dTotal: total submissions in prev 7 days (denominator for rate)
  *  - byWidget: [{ widgetId, widgetName, count }] sorted desc
  *
  * @param {string} tenantId
  * @returns {Promise<object>}
  */
 export async function getDashboardStats(tenantId) {
-  const todayStart = new Date();
+  const now = new Date();
+
+  // ── Time boundaries ────────────────────────────────────────────────────────
+  const todayStart = new Date(now);
   todayStart.setUTCHours(0, 0, 0, 0);
+
+  const yesterdayStart = new Date(todayStart);
+  yesterdayStart.setUTCDate(yesterdayStart.getUTCDate() - 1);
+
+  const sevenDaysAgo = new Date(todayStart);
+  sevenDaysAgo.setUTCDate(sevenDaysAgo.getUTCDate() - 7);
+
+  const fourteenDaysAgo = new Date(todayStart);
+  fourteenDaysAgo.setUTCDate(fourteenDaysAgo.getUTCDate() - 14);
 
   const [
     totalSubmissions,
     todaySubmissions,
+    yesterdaySubmissions,
+    last7dSubmissions,
+    prev7dSubmissions,
     totalWidgets,
+    prevTotalWidgets,
     statusGroups,
+    last7dStatusGroups,
+    prev7dStatusGroups,
     widgetGroups,
   ] = await prisma.$transaction([
-    // Total submissions for tenant
+    // All-time total
     prisma.submission.count({ where: { tenantId } }),
 
-    // Submissions created today (UTC midnight boundary)
+    // Today (UTC midnight → now)
     prisma.submission.count({
       where: { tenantId, createdAt: { gte: todayStart } },
     }),
 
-    // Active widget count
+    // Yesterday (UTC midnight to today midnight)
+    prisma.submission.count({
+      where: { tenantId, createdAt: { gte: yesterdayStart, lt: todayStart } },
+    }),
+
+    // Last 7 days (for total trend)
+    prisma.submission.count({
+      where: { tenantId, createdAt: { gte: sevenDaysAgo } },
+    }),
+
+    // Prior 7 days / 8–14 days ago (for total trend comparison)
+    prisma.submission.count({
+      where: { tenantId, createdAt: { gte: fourteenDaysAgo, lt: sevenDaysAgo } },
+    }),
+
+    // Active widgets now
     prisma.widget.count({ where: { tenantId, isActive: true } }),
 
-    // Group by status
+    // Active widgets created before 7 days ago (proxy for "count 7 days ago")
+    prisma.widget.count({
+      where: { tenantId, isActive: true, createdAt: { lt: sevenDaysAgo } },
+    }),
+
+    // All-time status breakdown
     prisma.submission.groupBy({
       by: ['status'],
       where: { tenantId },
+      _count: { status: true },
+    }),
+
+    // Last 7 days status breakdown (for enrichment rate trend)
+    prisma.submission.groupBy({
+      by: ['status'],
+      where: { tenantId, createdAt: { gte: sevenDaysAgo } },
+      _count: { status: true },
+    }),
+
+    // Prev 7 days status breakdown (for enrichment rate comparison)
+    prisma.submission.groupBy({
+      by: ['status'],
+      where: { tenantId, createdAt: { gte: fourteenDaysAgo, lt: sevenDaysAgo } },
       _count: { status: true },
     }),
 
@@ -66,10 +126,18 @@ export async function getDashboardStats(tenantId) {
   });
   const widgetMap = Object.fromEntries(widgets.map((w) => [w.id, w]));
 
+  // ── Compute status breakdowns ──────────────────────────────────────────────
   const statusBreakdown = { PENDING: 0, ENRICHED: 0, STORED: 0, FAILED: 0 };
   for (const group of statusGroups) {
     statusBreakdown[group.status] = group._count.status;
   }
+
+  const last7dEnriched = last7dStatusGroups.find((g) => g.status === 'ENRICHED')?._count.status ?? 0;
+  const prev7dEnriched = prev7dStatusGroups.find((g) => g.status === 'ENRICHED')?._count.status ?? 0;
+
+  // ── Widget delta ───────────────────────────────────────────────────────────
+  // Widgets added in the last 7 days = current count - count that existed 7d ago
+  const widgetDelta = totalWidgets - prevTotalWidgets;
 
   const byWidget = widgetGroups.map((g) => ({
     widgetId: g.widgetId,
@@ -81,10 +149,72 @@ export async function getDashboardStats(tenantId) {
   return {
     totalSubmissions,
     todaySubmissions,
+    yesterdaySubmissions,
+    last7dSubmissions,
+    prev7dSubmissions,
     totalWidgets,
+    widgetDelta,
     statusBreakdown,
+    last7dEnriched,
+    prev7dEnriched,
+    last7dSubmissions,
+    prev7dSubmissions,
     byWidget,
   };
+}
+
+
+/**
+ * Get per-day submission counts for the last `days` days (default 7).
+ *
+ * Returns an array ordered oldest → newest:
+ *   [{ date: 'Mon Aug 03', count: 5 }, ...]
+ *
+ * @param {string} tenantId
+ * @param {number} days
+ * @returns {Promise<Array<{ date: string, count: number, isoDate: string }>>}
+ */
+export async function getDailySubmissions(tenantId, days = 7) {
+  // Build array of day boundaries (UTC midnight) from oldest to today
+  const buckets = [];
+  for (let i = days - 1; i >= 0; i--) {
+    const d = new Date();
+    d.setUTCHours(0, 0, 0, 0);
+    d.setUTCDate(d.getUTCDate() - i);
+    buckets.push(d);
+  }
+
+  // Fetch all submissions in the window in a single query
+  const since = buckets[0];
+  const rows = await prisma.submission.findMany({
+    where: { tenantId, createdAt: { gte: since } },
+    select: { createdAt: true },
+    orderBy: { createdAt: 'asc' },
+  });
+
+  // Count submissions per day bucket
+  const result = buckets.map((bucketStart, idx) => {
+    const bucketEnd = idx < buckets.length - 1 ? buckets[idx + 1] : new Date(8640000000000000);
+    const count = rows.filter(
+      (r) => r.createdAt >= bucketStart && r.createdAt < bucketEnd
+    ).length;
+
+    // Format: "Mon Aug 03"
+    const label = bucketStart.toLocaleDateString('en-US', {
+      weekday: 'short',
+      month: 'short',
+      day: '2-digit',
+      timeZone: 'UTC',
+    });
+
+    return {
+      date: label,
+      count,
+      isoDate: bucketStart.toISOString().slice(0, 10),
+    };
+  });
+
+  return result;
 }
 
 /**
