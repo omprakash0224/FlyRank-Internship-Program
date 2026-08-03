@@ -1,4 +1,6 @@
 services:
+
+  # ── Backend: Express API ──────────────────────────────────────────────────────
   app:
     build:
       context: .
@@ -14,6 +16,19 @@ services:
       timeout: 10s
       retries: 3
       start_period: 10s
+
+  # ── Frontend: React SPA served by Nginx ───────────────────────────────────────
+  # Nginx serves the Vite-built static files and proxies /api/* → app:3000
+  dashboard:
+    build:
+      context: ./dashboard
+      dockerfile: Dockerfile
+    ports:
+      - "80:80"
+    depends_on:
+      app:
+        condition: service_healthy
+    restart: unless-stopped
 
 # PostgreSQL is hosted on Neon   → no local container needed
 # Redis is hosted on Upstash     → no local container needed

@@ -62,6 +62,8 @@ export const authApi = {
 export const dashboardApi = {
   getStats: () => apiFetch('/dashboard/stats'),
 
+  getDailyStats: (days = 7) => apiFetch(`/dashboard/stats/daily?days=${days}`),
+
   getSubmissions: ({ page = 1, limit = 20, widgetId } = {}) => {
     const params = new URLSearchParams({ page, limit });
     if (widgetId) params.set('widgetId', widgetId);

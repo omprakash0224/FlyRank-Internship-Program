@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import {
   getDashboardStats,
+  getDailySubmissions,
   listSubmissions,
   getSubmissionDetail,
   getSubmissionsSince,
@@ -20,6 +21,21 @@ dashboardRouter.get(
   asyncHandler(async (req, res) => {
     const stats = await getDashboardStats(req.tenantId);
     res.json({ data: stats });
+  })
+);
+
+// ─── GET /api/dashboard/stats/daily ──────────────────────────────────────────
+//
+// Returns per-day submission counts for the last N days (default 7, max 30).
+// Query params:
+//   days — number of days to return (default 7)
+//
+dashboardRouter.get(
+  '/stats/daily',
+  asyncHandler(async (req, res) => {
+    const days = Math.min(30, Math.max(1, parseInt(req.query.days, 10) || 7));
+    const data = await getDailySubmissions(req.tenantId, days);
+    res.json({ data });
   })
 );
 
