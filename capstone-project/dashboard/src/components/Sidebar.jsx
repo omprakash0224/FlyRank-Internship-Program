@@ -31,7 +31,7 @@ export function Sidebar({ page, onNavigate, isCollapsed = false }) {
       <div className="sidebar-header">
         <div className="sidebar-logo-group">
           <div className="sidebar-logo-icon">
-            <Activity size={20} />
+            <img src="/logo.svg" alt="WidgetLab Logo" style={{ width: 45, height: 45, backgroundColor: '#ffffff', padding: 4, borderRadius: 6, objectFit: 'contain' }} />
           </div>
           {!isCollapsed && (
             <div className="sidebar-logo-text">

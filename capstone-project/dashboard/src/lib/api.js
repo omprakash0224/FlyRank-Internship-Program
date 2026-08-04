@@ -78,4 +78,23 @@ export const dashboardApi = {
 export const widgetsApi = {
   list: ({ page = 1, limit = 50 } = {}) =>
     apiFetch(`/widgets?page=${page}&limit=${limit}`),
+
+  get: (id) => apiFetch(`/widgets/${id}`),
+
+  create: (data) =>
+    apiFetch('/widgets', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  update: (id, data) =>
+    apiFetch(`/widgets/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
+
+  remove: (id) =>
+    apiFetch(`/widgets/${id}`, {
+      method: 'DELETE',
+    }),
 };
