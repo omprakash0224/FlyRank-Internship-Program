@@ -141,7 +141,7 @@ sequenceDiagram
 
 ### 3.3 Data Enrichment Fallback
 
-To ensure resilience, the IP-to-geo enrichment uses a fallback chain. If the primary provider fails, it seamlessly degrades to secondary options without blocking the main thread.
+To ensure resilience, the IP-to-geo enrichment uses a fallback chain of three free, HTTPS-only providers (`ipwho.is`, `ipapi.co`, `freeipapi.com`). If the primary provider fails, it seamlessly degrades to secondary options without blocking the main thread. Local/private IP addresses are automatically short-circuited to prevent unnecessary network calls.
 
 ```mermaid
 flowchart TD

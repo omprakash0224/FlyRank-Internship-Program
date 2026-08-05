@@ -20,7 +20,7 @@ When a visitor interacts with the widget on an external site, the platform:
 Embedding widgets on third-party domains introduces significant security, performance, and reliability challenges. This platform addresses these problems by providing:
 - **Zero-trust public endpoints:** Hardened against abuse with strict CORS policies, payload validation, and rate limiting.
 - **Abuse Resistance:** Built-in spam controls (honeypots, heuristics) to protect against bots.
-- **Resilient Enrichment:** A robust fallback chain for data enrichment (e.g., IP→geo) that survives upstream failures.
+- **Resilient Enrichment:** A robust fallback chain for data enrichment (e.g., IP→geo) using fully free, HTTPS-only external providers (`ipwho.is`, `ipapi.co`, `freeipapi.com`), which survives upstream failures. It also includes local network/private IP short-circuiting.
 - **Graceful Degradation:** Asynchronous side effects (like sending emails or triggering webhooks) ensure that primary submissions never fail even if third-party services go down.
 - **CDN-Grade Config Delivery:** Fast, cached, cross-origin asset serving to ensure the widget doesn't slow down the host site.
 
