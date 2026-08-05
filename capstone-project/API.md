@@ -69,6 +69,7 @@ Submit form data from the embedded widget. Processing and enrichment occur async
   ```
 - **Response (429 Too Many Requests)**: Rate limit exceeded for this IP + widget combination.
 - **Response (404 Not Found)**: Widget does not exist or is inactive.
+- **Note on Geo Enrichment**: The API asynchronously resolves the visitor's IP using a chain of real external providers (`ipwho.is`, `ipapi.co`, `freeipapi.com`). If a private or loopback IP is detected (e.g., from `localhost`), the lookup is short-circuited and returns `{ "country": "private", "provider": "local" }`.
 
 ---
 
