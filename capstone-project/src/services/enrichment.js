@@ -2,41 +2,32 @@ import { logger } from '../utils/logger.js';
 
 // ─── Enrichment Service ───────────────────────────────────────────────────────
 //
-// Resolves a visitor's IP address to geographic and device metadata using a
-// 3-provider fallback chain.
+// Resolves a visitor's IP address to geographic metadata using a
+// 3-provider fallback chain. All providers are free and HTTPS-only.
 //
-// Provider status is controlled by the env var:
-//   MOCK_GEO_PROVIDER_STATUS="primary:up,secondary:down,tertiary:up"
+// Provider chain (tried in order):
+//   1. ipwho.is        – unlimited, no API key required
+//   2. ipapi.co        – 1 000 req/day free, no API key required
+//   3. freeipapi.com   – unlimited, no API key required
 //
-// In production these would be real HTTP calls to ipapi.co, ipinfo.io, and
-// abstractapi.com. For this capstone they are deterministic mocks that can be
-// toggled up/down for testing the fallback logic without network calls.
+// If all providers fail (network error, rate-limit, timeout) the service
+// returns graceful degradation data rather than blocking the submission.
+//
+// Per-provider timeout is controlled by:
+//   GEO_TIMEOUT_MS=3000   (default: 3 000 ms)
 //
 
-// ─── Provider Status Parsing ──────────────────────────────────────────────────
+// ─── Private / Loopback IP Guard ─────────────────────────────────────────────
 
-/**
- * Parse the MOCK_GEO_PROVIDER_STATUS env var into a lookup map.
- *
- * @returns {Record<string, 'up' | 'down'>}
- */
-function parseProviderStatus() {
-  const raw = process.env.MOCK_GEO_PROVIDER_STATUS ?? 'primary:up,secondary:up,tertiary:up';
-  const status = {};
-  for (const segment of raw.split(',')) {
-    const [name, state] = segment.trim().split(':');
-    if (name && state) {
-      status[name.trim()] = state.trim();
-    }
-  }
-  return status;
-}
+/** Matches RFC-1918 private ranges, loopback, and link-local addresses. */
+const PRIVATE_IP_RE =
+  /^(127\.|10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.|::1$|^::$|localhost)/i;
 
-// ─── Mock Provider Implementations ───────────────────────────────────────────
+// ─── Provider Implementations ─────────────────────────────────────────────────
 
 /**
  * @typedef {Object} GeoData
- * @property {string} country    ISO 3166-1 alpha-2 country code (or 'unknown')
+ * @property {string} country    ISO 3166-1 alpha-2 country code, 'private', or 'unknown'
  * @property {string} [city]
  * @property {string} [region]
  * @property {number} [lat]
@@ -45,76 +36,76 @@ function parseProviderStatus() {
  */
 
 /**
- * Mock of ipapi.co (primary provider).
+ * Primary provider — ipwho.is (unlimited, no key, HTTPS).
  *
  * @param {string} ip
  * @returns {Promise<GeoData>}
  */
 async function enrichWithPrimary(ip) {
-  const status = parseProviderStatus();
-  if (status['primary'] === 'down') {
-    throw new Error('Primary geo provider is down (mock)');
-  }
-  // Deterministic mock data
+  const res = await fetch(`https://ipwho.is/${ip}`);
+  if (!res.ok) throw new Error(`ipwho.is responded ${res.status}`);
+  const d = await res.json();
+  if (!d.success) throw new Error(`ipwho.is: ${d.message ?? 'unknown error'}`);
   return {
-    country: 'US',
-    city: 'San Francisco',
-    region: 'California',
-    lat: 37.7749,
-    lon: -122.4194,
-    provider: 'primary',
+    country: d.country_code ?? 'unknown',
+    city: d.city,
+    region: d.region,
+    lat: d.latitude,
+    lon: d.longitude,
+    provider: 'ipwho.is',
   };
 }
 
 /**
- * Mock of ipinfo.io (secondary provider).
+ * Secondary provider — ipapi.co (1 000 req/day free, no key, HTTPS).
  *
  * @param {string} ip
  * @returns {Promise<GeoData>}
  */
 async function enrichWithSecondary(ip) {
-  const status = parseProviderStatus();
-  if (status['secondary'] === 'down') {
-    throw new Error('Secondary geo provider is down (mock)');
-  }
+  const res = await fetch(`https://ipapi.co/${ip}/json/`);
+  if (!res.ok) throw new Error(`ipapi.co responded ${res.status}`);
+  const d = await res.json();
+  if (d.error) throw new Error(`ipapi.co: ${d.reason ?? d.error}`);
   return {
-    country: 'US',
-    city: 'New York',
-    region: 'New York',
-    lat: 40.7128,
-    lon: -74.006,
-    provider: 'secondary',
+    country: d.country_code ?? 'unknown',
+    city: d.city,
+    region: d.region,
+    lat: d.latitude,
+    lon: d.longitude,
+    provider: 'ipapi.co',
   };
 }
 
 /**
- * Mock of abstractapi.com (tertiary provider — designed to always succeed).
+ * Tertiary provider — freeipapi.com (unlimited, no key, HTTPS).
  *
  * @param {string} ip
  * @returns {Promise<GeoData>}
  */
 async function enrichWithTertiary(ip) {
-  const status = parseProviderStatus();
-  if (status['tertiary'] === 'down') {
-    throw new Error('Tertiary geo provider is down (mock)');
-  }
+  const res = await fetch(`https://freeipapi.com/api/json/${ip}`);
+  if (!res.ok) throw new Error(`freeipapi.com responded ${res.status}`);
+  const d = await res.json();
   return {
-    country: 'US',
-    city: 'Austin',
-    region: 'Texas',
-    lat: 30.2672,
-    lon: -97.7431,
-    provider: 'tertiary',
+    country: d.countryCode ?? 'unknown',
+    city: d.cityName,
+    region: d.regionName,
+    lat: d.latitude,
+    lon: d.longitude,
+    provider: 'freeipapi.com',
   };
 }
 
 // ─── Fallback Chain ───────────────────────────────────────────────────────────
 
 /** @type {Array<{ name: string, fn: (ip: string) => Promise<GeoData>, timeoutMs: number }>} */
+const TIMEOUT_MS = Number(process.env.GEO_TIMEOUT_MS ?? 3000);
+
 const PROVIDERS = [
-  { name: 'primary', fn: enrichWithPrimary, timeoutMs: 2000 },
-  { name: 'secondary', fn: enrichWithSecondary, timeoutMs: 2000 },
-  { name: 'tertiary', fn: enrichWithTertiary, timeoutMs: 3000 },
+  { name: 'ipwho.is', fn: enrichWithPrimary, timeoutMs: TIMEOUT_MS },
+  { name: 'ipapi.co', fn: enrichWithSecondary, timeoutMs: TIMEOUT_MS },
+  { name: 'freeipapi.com', fn: enrichWithTertiary, timeoutMs: TIMEOUT_MS },
 ];
 
 /**
@@ -132,12 +123,19 @@ function createTimeout(ms) {
 /**
  * Resolve IP → geo data using the 3-provider fallback chain.
  * Each provider is raced against its individual timeout.
+ * Private / loopback IPs are short-circuited without a network call.
  * If all providers fail, returns graceful degradation data.
  *
  * @param {string} ip  Raw IP address string (IPv4 or IPv6)
  * @returns {Promise<GeoData>}
  */
 export async function enrichIp(ip) {
+  // Short-circuit for private / loopback addresses — no network call needed.
+  if (PRIVATE_IP_RE.test(ip)) {
+    logger.debug({ ip }, 'Private/loopback IP — skipping geo lookup');
+    return { country: 'private', provider: 'local' };
+  }
+
   for (const provider of PROVIDERS) {
     try {
       const result = await Promise.race([
@@ -165,7 +163,7 @@ export async function enrichIp(ip) {
 
 /**
  * Extract basic browser/OS info from a User-Agent string.
- * Regex-based — intentionally lightweight (no npm dep for capstone).
+ * Regex-based — intentionally lightweight (no npm dep).
  *
  * @param {string | undefined} ua
  * @returns {{ browser: string, os: string }}
