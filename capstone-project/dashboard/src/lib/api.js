@@ -6,7 +6,7 @@ import { getToken, clearAuth } from './auth.js';
 //   - 401: clears auth and reloads to trigger login redirect
 //   - Non-ok responses: throws an error with the API error message
 
-const BASE = '/api';
+const BASE = import.meta.env.VITE_API_URL || '/api';
 
 /**
  * Make an authenticated API request.

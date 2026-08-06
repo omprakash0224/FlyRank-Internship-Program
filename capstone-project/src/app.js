@@ -6,6 +6,7 @@ import { adminRouter, authRouter } from './routes/admin/index.js';
 import { publicRouter } from './routes/public/index.js';
 import { requireAuth } from './middleware/auth.js';
 import { attachTenant } from './middleware/tenant.js';
+import { publicCors, dashboardCors } from './middleware/cors.js';
 import { errorHandler } from './utils/errors.js';
 import { logger } from './utils/logger.js';
 
@@ -65,16 +66,21 @@ export function createApp() {
   // ─── Routes ───────────────────────────────────────────────────────────────
   app.use('/', healthRouter);
 
+  // Dashboard CORS preflight — must be registered before any route that
+  // requires auth, because OPTIONS requests carry no Authorization header.
+  // dashboardCors is a no-op when DASHBOARD_ORIGIN is unset (same-domain).
+  app.options('/api/*', dashboardCors, (_req, res) => res.status(204).send());
+
   // Public API — unauthenticated, CORS-enabled (widgets + submissions)
   // CORS is applied per-route inside publicRouter, not globally,
   // so admin routes are unaffected.
   app.use('/', publicRouter);
 
   // Public auth routes — login and register (no JWT required)
-  app.use('/api/auth', authRouter);
+  app.use('/api/auth', dashboardCors, authRouter);
 
   // Admin API — all routes require a valid JWT + tenant record
-  app.use('/api', requireAuth, attachTenant, adminRouter);
+  app.use('/api', dashboardCors, requireAuth, attachTenant, adminRouter);
 
   // ─── 404 Handler ─────────────────────────────────────────────────────────
   app.use((_req, res) => {
