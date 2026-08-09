@@ -126,3 +126,4 @@ flowchart TD
 - **Logging:** `pino` + `pino-pretty`
 - **Validation:** Zod schemas
 - **Testing:** Vitest & Supertest
+- **Frontend:** React.js (Vite framework)
