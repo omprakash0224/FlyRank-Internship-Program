@@ -62,6 +62,82 @@ Embedding widgets on third-party domains introduces significant security, perfor
    npm run dev
    ```
 
+### Setup with Docker
+
+Docker is the fastest way to get the full stack (backend API + React dashboard) running locally without manually installing Node.js or configuring a build toolchain.
+
+> **Note:** The platform uses managed cloud services for the database and cache. You still need a [Neon](https://neon.tech) PostgreSQL connection string and an [Upstash](https://upstash.com) Redis REST URL — no local Postgres or Redis containers are required.
+
+#### Prerequisites
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) (v24+ recommended) with Docker Compose v2 included.
+
+#### Option A — Docker Compose (Recommended)
+
+This starts both the **Express backend** (`app`, port `3000`) and the **React dashboard** served by Nginx (`dashboard`, port `80`) in a single command.
+
+1. **Copy and fill in environment variables:**
+   ```bash
+   cp .env.example .env
+   # Edit .env and set DATABASE_URL, UPSTASH_REDIS_REST_URL,
+   # UPSTASH_REDIS_REST_TOKEN, and JWT_SECRET
+   ```
+
+2. **Build images and start all services:**
+   ```bash
+   docker compose up --build
+   ```
+   - Backend API: `http://localhost:3000`
+   - Dashboard UI: `http://localhost:80`
+
+3. **Push the Prisma schema to your Neon database** (first run only):
+   ```bash
+   docker compose exec app npx prisma db push
+   ```
+
+4. **Stop all services:**
+   ```bash
+   docker compose down
+   ```
+
+#### Option B — Standalone Dockerfile (Backend Only)
+
+Use this if you only need the Express API without the React dashboard.
+
+1. **Build the image:**
+   ```bash
+   docker build -t widget-platform .
+   ```
+
+2. **Run the container** (pass your `.env` file):
+   ```bash
+   docker run --rm -p 3000:3000 --env-file .env widget-platform
+   ```
+   The API will be available at `http://localhost:3000`.
+
+#### Useful Docker Commands
+
+| Command | Description |
+|---|---|
+| `docker compose up --build -d` | Start all services in detached (background) mode |
+| `docker compose logs -f` | Follow live logs from all services |
+| `docker compose logs -f app` | Follow logs from the backend only |
+| `docker compose down -v` | Stop services and remove volumes |
+| `docker compose exec app sh` | Open a shell inside the running backend container |
+| `docker compose ps` | Check running service status and health |
+
+#### Docker Architecture
+
+The `docker-compose.yml` defines two services:
+
+| Service | Dockerfile | Port | Description |
+|---|---|---|---|
+| `app` | `./Dockerfile` | `3000` | Express API (Node 20 Alpine). Installs all deps → generates Prisma client → prunes devDeps |
+| `dashboard` | `./dashboard/Dockerfile` | `80` | React SPA (multi-stage: Vite build → Nginx 1.27 Alpine). Proxies `/api/*` → `app:3000` |
+
+The `dashboard` service waits for `app` to pass its health check (`GET /health`) before starting.
+
+---
+
 ### Other Useful Commands
 - `npm run test` - Run tests (Vitest)
 - `npm run test:watch` - Run tests in watch mode

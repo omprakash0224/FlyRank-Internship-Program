@@ -2,13 +2,16 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-# Install dependencies first (layer caching)
+# Install ALL dependencies first (prisma CLI is a devDep — needed for generate)
 COPY package*.json ./
-RUN npm ci --omit=dev
+RUN npm ci
 
-# Copy Prisma schema and generate client
+# Copy Prisma schema and generate client (requires prisma CLI from devDeps)
 COPY prisma ./prisma
 RUN npx prisma generate
+
+# Prune devDependencies to keep the final image lean
+RUN npm prune --omit=dev
 
 # Copy source
 COPY src ./src
