@@ -344,7 +344,6 @@ Key test cases: CORS preflight, payload validation, rate limiter (429 at thresho
 - [ARCHITECTURE.md](./capstone-project/ARCHITECTURE.md) — Detailed architecture diagrams and sequence flows
 - [API.md](./capstone-project/API.md) — Complete API specification
 - [SECURITY.md](./capstone-project/SECURITY.md) — Threat model and security controls
-- [DEPLOYMENT.md](./capstone-project/DEPLOYMENT.md) — Production deployment guide
 
 ---
 
