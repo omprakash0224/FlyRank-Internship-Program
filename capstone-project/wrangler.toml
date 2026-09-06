@@ -1,0 +1,23 @@
+name = "capstone-backend"
+main = "src/worker.js"          # Workers entrypoint (fetch handler)
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat"]  # Enables Node.js built-in polyfills (Buffer, crypto, streams)
+
+[vars]
+NODE_ENV = "production"
+
+# ─── Secrets ──────────────────────────────────────────────────────────────────
+# Never commit secrets to this file. Set them via the Wrangler CLI:
+#
+#   wrangler secret put DATABASE_URL
+#   wrangler secret put UPSTASH_REDIS_REST_URL
+#   wrangler secret put UPSTASH_REDIS_REST_TOKEN
+#   wrangler secret put JWT_SECRET
+#   wrangler secret put JWT_EXPIRES_IN
+#   wrangler secret put RATE_LIMIT_WINDOW_MS
+#   wrangler secret put RATE_LIMIT_MAX_REQUESTS
+#   wrangler secret put GEO_TIMEOUT_MS
+#   wrangler secret put LOG_LEVEL
+#
+# Optional: set DASHBOARD_ORIGIN if your dashboard is on a separate domain.
+#   wrangler secret put DASHBOARD_ORIGIN
